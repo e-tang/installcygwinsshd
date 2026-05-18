@@ -23,6 +23,12 @@ Open PowerShell **as Administrator** and run:
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
 ```
 
+Then connect from any SSH client:
+
+```bash
+ssh your-username@hostname-or-ip
+```
+
 ### AppLocker / service creation issues
 
 If `cygrunsrv` fails with `Win32 error 5: Access is denied` when creating the
@@ -37,9 +43,17 @@ stays enforced.
 ```powershell
 # Default install path (C:\cygwin64)
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
 
 # Custom install path (e.g. D:\cygwin64)
 $env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
+$env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+Then connect:
+
+```bash
+ssh your-username@hostname-or-ip
 ```
 
 **Option 2 — Set AppLocker to Audit mode**
@@ -49,6 +63,13 @@ Useful when you want to keep visibility without blocking.
 
 ```powershell
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-audit-mode.ps1 | iex
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+Then connect:
+
+```bash
+ssh your-username@hostname-or-ip
 ```
 
 **Option 3 — Disable AppLocker entirely**
@@ -58,6 +79,13 @@ are not sufficient.
 
 ```powershell
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-disable.ps1 | iex
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+Then connect:
+
+```bash
+ssh your-username@hostname-or-ip
 ```
 
 > **Note:** If the machine is domain-joined, Group Policy may revert these
