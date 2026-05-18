@@ -17,10 +17,16 @@ Automatically installs Cygwin (with `openssh` and `git`) and configures it as a 
 
 ## Usage
 
-Open PowerShell **as Administrator** and run:
+**From PowerShell (as Administrator):**
 
 ```powershell
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+**From a Cygwin/Linux bash session (e.g. over SSH):**
+
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
 ```
 
 Then connect from any SSH client:
@@ -40,6 +46,7 @@ sshd service, AppLocker may be blocking it. Run one of these scripts first
 Adds a single AppLocker path rule to allow `$CYGWIN_ROOT\*`. Everything else
 stays enforced.
 
+*PowerShell:*
 ```powershell
 # Default install path (C:\cygwin64)
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
@@ -48,6 +55,14 @@ irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master
 # Custom install path (e.g. D:\cygwin64)
 $env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
 $env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+*Bash (over SSH):*
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
+
+# Custom install path (e.g. D:\cygwin64)
+powershell -Command "\$env:CYGWIN_ROOT='D:\cygwin64'; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
 ```
 
 Then connect:
@@ -61,9 +76,15 @@ ssh your-username@hostname-or-ip
 AppLocker logs blocked executables but no longer prevents them from running.
 Useful when you want to keep visibility without blocking.
 
+*PowerShell:*
 ```powershell
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-audit-mode.ps1 | iex
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+*Bash (over SSH):*
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-audit-mode.ps1 | iex; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
 ```
 
 Then connect:
@@ -77,9 +98,15 @@ ssh your-username@hostname-or-ip
 Stops and disables the AppIDSvc service. Use this only if the other options
 are not sufficient.
 
+*PowerShell:*
 ```powershell
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-disable.ps1 | iex
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+*Bash (over SSH):*
+```bash
+powershell -Command "irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-disable.ps1 | iex; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
 ```
 
 Then connect:
@@ -97,7 +124,12 @@ ssh your-username@hostname-or-ip
 The script detects an existing Cygwin installation from the registry automatically.
 To install to a different drive or path, set `$env:CYGWIN_ROOT` before running:
 
+*PowerShell:*
 ```powershell
-$env:CYGWIN_ROOT = "D:\cygwin64"
-irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+$env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```
+
+*Bash (over SSH):*
+```bash
+powershell -Command "\$env:CYGWIN_ROOT='D:\cygwin64'; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex"
 ```
