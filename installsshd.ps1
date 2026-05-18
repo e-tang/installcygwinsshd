@@ -122,7 +122,7 @@ try {
     }
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false | Out-Null
 
-    if (Test-Path $sshdLog) { Write-Host (Get-Content $sshdLog -Raw) }
+    if (Test-Path $sshdLog) { Get-Content $sshdLog | ForEach-Object { Write-Host $_ } }
     Write-Host "Note: cygrunsrv service install errors above are handled in Step 4." -ForegroundColor Gray
 
     # ── Step 2: Set CYGWIN environment variable ────────────────────────────────
