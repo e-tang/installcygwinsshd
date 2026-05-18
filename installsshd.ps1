@@ -119,28 +119,16 @@ try {
         Write-Host "Service removed." -ForegroundColor Green
     }
 
-    # Run as SYSTEM via scheduled task to ensure correct file ownership/permissions
-    $taskName = "CygwinSSHDSetup"
-    $sshdLog  = "$CygwinRoot\tmp\sshd-setup.log"
+    $sshdLog = "$CygwinRoot\tmp\sshd-setup.log"
     New-Item -ItemType Directory -Force -Path "$CygwinRoot\tmp" | Out-Null
 
-    $taskArg   = "--login -c `"ssh-host-config --yes --cygwin ntsec --name sshd --port 22 > /tmp/sshd-setup.log 2>&1`""
-    $action    = New-ScheduledTaskAction -Execute $Bash -Argument $taskArg
-    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
-    $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
-    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-    Start-ScheduledTask -TaskName $taskName | Out-Null
-
-    $timeout = 60; $elapsed = 0
-    while ($elapsed -lt $timeout) {
-        $state = (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State
-        if ($state -ne "Running") { break }
-        Start-Sleep -Seconds 2; $elapsed += 2
-    }
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-
+    # Run ssh-host-config via Start-Process (generates host keys + sshd_config).
+    # Service creation by cygrunsrv will fail — that is handled in Step 4.
+    $proc = Start-Process -FilePath $Bash `
+        -ArgumentList "--login", "-c", "ssh-host-config --yes --cygwin ntsec --name sshd --port 22 > /tmp/sshd-setup.log 2>&1" `
+        -Wait -PassThru -WindowStyle Hidden
     if (Test-Path $sshdLog) { Get-Content $sshdLog | ForEach-Object { Write-Host $_ } }
-    Write-Host "Note: cygrunsrv service install errors above are handled in Step 4." -ForegroundColor Gray
+    Write-Host "Note: cygrunsrv service install errors above are handled in Step 4."
 
     # ── Step 2: Set CYGWIN environment variable ────────────────────────────────
     Write-Host "=== Step 2: Setting CYGWIN environment variable ===" -ForegroundColor Cyan
