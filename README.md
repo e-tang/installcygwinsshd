@@ -23,23 +23,41 @@ Open PowerShell **as Administrator** and run:
 irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
 ```
 
-The window will stay open when the script finishes. Press **Enter** to close it.
-
 ### AppLocker / service creation issues
 
 If `cygrunsrv` fails with `Win32 error 5: Access is denied` when creating the
 sshd service, AppLocker may be blocking it. Run one of these scripts first
 (as Administrator), then re-run `installsshd.ps1`:
 
-| Script | Effect |
-|--------|--------|
-| `applocker-allow-cygwin.ps1` | Adds a path rule to allow `$CYGWIN_ROOT\*` (recommended) |
-| `applocker-audit-mode.ps1` | Sets AppLocker to Audit mode (logs only, not blocking) |
-| `applocker-disable.ps1` | Disables AppLocker entirely |
+**Option 1 — Whitelist Cygwin path (recommended)**
+
+Adds a single AppLocker path rule to allow `$CYGWIN_ROOT\*`. Everything else
+stays enforced.
 
 ```powershell
-# Example — whitelist Cygwin on D:\
+# Default install path (C:\cygwin64)
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
+
+# Custom install path (e.g. D:\cygwin64)
 $env:CYGWIN_ROOT="D:\cygwin64"; irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-allow-cygwin.ps1 | iex
+```
+
+**Option 2 — Set AppLocker to Audit mode**
+
+AppLocker logs blocked executables but no longer prevents them from running.
+Useful when you want to keep visibility without blocking.
+
+```powershell
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-audit-mode.ps1 | iex
+```
+
+**Option 3 — Disable AppLocker entirely**
+
+Stops and disables the AppIDSvc service. Use this only if the other options
+are not sufficient.
+
+```powershell
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/applocker-disable.ps1 | iex
 ```
 
 > **Note:** If the machine is domain-joined, Group Policy may revert these
