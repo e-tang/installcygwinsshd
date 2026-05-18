@@ -19,7 +19,8 @@ if (-not (Test-Path $Bash)) {
         "--root", $CygwinRoot,
         "--local-package-dir", "$env:TEMP\cygwin-packages",
         "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
-        "--packages", "openssh,git"
+        "--packages", "openssh,git",
+        "--all-users"
     )
     $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
