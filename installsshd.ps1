@@ -99,7 +99,7 @@ try {
         Start-Sleep -Seconds 2
     }
 
-    $configCmd = "ssh-host-config --yes --cygwin 'ntsec' --name 'sshd' --port 22 --user 'cyg_server'"
+    $configCmd = "ssh-host-config --yes --cygwin ntsec --name sshd --port 22"
     $output = Invoke-Cygwin $configCmd
     Write-Host $output
 
