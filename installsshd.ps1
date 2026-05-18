@@ -129,13 +129,15 @@ try {
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
     $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
     Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-    Start-ScheduledTask -TaskName $taskName
+    Start-ScheduledTask -TaskName $taskName | Out-Null
 
     $timeout = 60; $elapsed = 0
-    while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -eq "Running" -and $elapsed -lt $timeout) {
+    while ($elapsed -lt $timeout) {
+        $state = (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State
+        if ($state -ne "Running") { break }
         Start-Sleep -Seconds 2; $elapsed += 2
     }
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false | Out-Null
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
 
     if (Test-Path $sshdLog) { Get-Content $sshdLog | ForEach-Object { Write-Host $_ } }
     Write-Host "Note: cygrunsrv service install errors above are handled in Step 4." -ForegroundColor Gray
@@ -191,7 +193,7 @@ try {
     }
 
     if (-not $serviceOk) {
-        Unregister-ScheduledTask -TaskName "CygwinSSHD" -Confirm:$false -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName "CygwinSSHD" -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
         $sshdAction    = New-ScheduledTaskAction -Execute $Bash -Argument '--login -c "/usr/sbin/sshd -D"'
         $sshdTrigger   = New-ScheduledTaskTrigger -AtStartup
         $sshdPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
@@ -199,7 +201,7 @@ try {
         Register-ScheduledTask -TaskName "CygwinSSHD" -Action $sshdAction -Trigger $sshdTrigger `
             -Principal $sshdPrincipal -Settings $sshdSettings -Description "Cygwin OpenSSH Server" -Force | Out-Null
         Write-Host "sshd registered as scheduled task (starts at boot as SYSTEM)." -ForegroundColor Green
-        Start-ScheduledTask -TaskName "CygwinSSHD"
+        Start-ScheduledTask -TaskName "CygwinSSHD" | Out-Null
         Start-Sleep -Seconds 3
         $task = Get-ScheduledTask -TaskName "CygwinSSHD" -ErrorAction SilentlyContinue
         if ($task.State -eq "Running") {
