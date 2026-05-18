@@ -31,7 +31,7 @@ try {
             "--root", $CygwinRoot,
             "--local-package-dir", $CygwinPkgDir,
             "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
-            "--packages", "openssh,git"
+            "--packages", "base-cygwin,base-files,libiconv2,openssh,git"
         )
         $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru -WindowStyle Hidden
         if ($proc.ExitCode -ne 0) {
