@@ -24,3 +24,13 @@ irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master
 ```
 
 The window will stay open when the script finishes. Press **Enter** to close it.
+
+### Custom install path
+
+The script detects an existing Cygwin installation from the registry automatically.
+To install to a different drive or path, set `$env:CYGWIN_ROOT` before running:
+
+```powershell
+$env:CYGWIN_ROOT = "D:\cygwin64"
+irm https://raw.githubusercontent.com/e-tang/installcygwinsshd/refs/heads/master/installsshd.ps1 | iex
+```

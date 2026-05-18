@@ -9,7 +9,17 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 }
 
 try {
-    $CygwinRoot  = "C:\cygwin64"
+    # Resolution order: env override → registry (existing install) → default
+    if ($env:CYGWIN_ROOT) {
+        $CygwinRoot = $env:CYGWIN_ROOT
+        Write-Host "Using CYGWIN_ROOT override: $CygwinRoot" -ForegroundColor Cyan
+    } elseif (Test-Path "HKLM:\SOFTWARE\Cygwin\setup") {
+        $CygwinRoot = (Get-ItemProperty "HKLM:\SOFTWARE\Cygwin\setup" -ErrorAction SilentlyContinue).rootdir
+        Write-Host "Detected existing Cygwin installation at: $CygwinRoot" -ForegroundColor Cyan
+    } else {
+        $CygwinRoot = "C:\cygwin64"
+    }
+
     $Bash        = "$CygwinRoot\bin\bash.exe"
     $CygwinSetup = "$env:TEMP\cygwin-setup-x86_64.exe"
 
