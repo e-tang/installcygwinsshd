@@ -95,8 +95,19 @@ try {
     if ($null -ne $existingSvc) {
         Write-Host "Removing stale sshd service..." -ForegroundColor Yellow
         Stop-Service -Name "sshd" -Force -ErrorAction SilentlyContinue
-        & sc.exe delete sshd | Out-Null
-        Start-Sleep -Seconds 2
+        & sc.exe delete sshd
+        Write-Host "Waiting for service to be fully removed..." -ForegroundColor Yellow
+        $timeout = 30
+        $elapsed = 0
+        while ((Get-Service -Name "sshd" -ErrorAction SilentlyContinue) -and $elapsed -lt $timeout) {
+            Start-Sleep -Seconds 2
+            $elapsed += 2
+            Write-Host "  Still waiting... ($elapsed s)" -ForegroundColor Gray
+        }
+        if (Get-Service -Name "sshd" -ErrorAction SilentlyContinue) {
+            throw "sshd service could not be removed after $timeout seconds. Try rebooting and re-running."
+        }
+        Write-Host "Service removed." -ForegroundColor Green
     }
 
     $configCmd = "ssh-host-config --yes --cygwin ntsec --name sshd --port 22"
