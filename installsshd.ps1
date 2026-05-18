@@ -13,7 +13,6 @@ try {
         Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $CygwinSetup -UseBasicParsing
 
         $CygwinPkgDir = "$env:TEMP\cygwin-packages"
-        $CygwinLog    = "$env:TEMP\cygwin-setup.log"
         New-Item -ItemType Directory -Force -Path $CygwinPkgDir | Out-Null
 
         Write-Host "Running Cygwin installer (this may take several minutes)..." -ForegroundColor Yellow
@@ -26,14 +25,14 @@ try {
             "--local-package-dir", $CygwinPkgDir,
             "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
             "--packages", "openssh,git",
-            "--all-users",
-            "--log", $CygwinLog
+            "--all-users"
         )
         $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
         if ($proc.ExitCode -ne 0) {
+            $CygwinLog = "$CygwinRoot\var\log\setup.log"
             if (Test-Path $CygwinLog) {
-                Write-Host "`nCygwin setup log:" -ForegroundColor Yellow
-                Get-Content $CygwinLog | Select-Object -Last 30 | Write-Host
+                Write-Host "`nCygwin setup log (last 30 lines):" -ForegroundColor Yellow
+                Get-Content $CygwinLog | Select-Object -Last 30 | ForEach-Object { Write-Host $_ }
             }
             throw "Cygwin installation failed with exit code $($proc.ExitCode)."
         }
