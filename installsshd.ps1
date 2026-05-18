@@ -24,8 +24,7 @@ try {
             "--root", $CygwinRoot,
             "--local-package-dir", $CygwinPkgDir,
             "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
-            "--packages", "openssh,git",
-            "--all-users"
+            "--packages", "openssh,git"
         )
         $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
         if ($proc.ExitCode -ne 0) {
