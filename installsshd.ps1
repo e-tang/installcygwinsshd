@@ -52,10 +52,22 @@ try {
 
     function Invoke-Cygwin($cmd) {
         $result = & $Bash --login -c $cmd 2>&1
+        if ($LASTEXITCODE -ne 0) {
+            throw "Cygwin command failed (exit $LASTEXITCODE): $cmd`nOutput: $result"
+        }
         return $result
     }
 
     Write-Host "=== Step 1: Running ssh-host-config ===" -ForegroundColor Cyan
+
+    $existingSvc = Get-Service -Name "sshd" -ErrorAction SilentlyContinue
+    if ($null -ne $existingSvc) {
+        Write-Host "Removing stale sshd service..." -ForegroundColor Yellow
+        Stop-Service -Name "sshd" -Force -ErrorAction SilentlyContinue
+        & sc.exe delete sshd | Out-Null
+        Start-Sleep -Seconds 2
+    }
+
     $configCmd = "ssh-host-config --yes --cygwin 'ntsec' --name 'sshd' --port 22 --user 'cyg_server'"
     $output = Invoke-Cygwin $configCmd
     Write-Host $output
