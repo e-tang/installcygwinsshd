@@ -114,9 +114,30 @@ try {
         Write-Host "Service removed." -ForegroundColor Green
     }
 
-    $configCmd = "ssh-host-config --yes --cygwin ntsec --name sshd --port 22"
-    $output = Invoke-Cygwin $configCmd
-    Write-Host $output
+    # Run ssh-host-config as SYSTEM via a scheduled task — SYSTEM always has
+    # full SCM rights to create services, bypassing UAC token filtering.
+    $taskName = "CygwinSSHDSetup"
+    $sshdLog  = "$CygwinRoot\tmp\sshd-setup.log"
+    New-Item -ItemType Directory -Force -Path "$CygwinRoot\tmp" | Out-Null
+
+    $taskArg   = "--login -c `"ssh-host-config --yes --cygwin ntsec --name sshd --port 22 > /tmp/sshd-setup.log 2>&1`""
+    $action    = New-ScheduledTaskAction -Execute $Bash -Argument $taskArg
+    $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+    $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
+    Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
+
+    Write-Host "Running ssh-host-config as SYSTEM..." -ForegroundColor Yellow
+    Start-ScheduledTask -TaskName $taskName
+
+    $timeout = 60; $elapsed = 0
+    while ((Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue).State -eq "Running" -and $elapsed -lt $timeout) {
+        Start-Sleep -Seconds 2; $elapsed += 2
+    }
+    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false | Out-Null
+
+    if (Test-Path $sshdLog) {
+        Write-Host (Get-Content $sshdLog -Raw)
+    }
 
     Write-Host "=== Step 2: Setting CYGWIN environment variable ===" -ForegroundColor Cyan
     try {
