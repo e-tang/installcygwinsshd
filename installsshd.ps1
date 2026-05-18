@@ -155,20 +155,26 @@ try {
         Write-Host "Firewall rule already exists." -ForegroundColor Yellow
     }
 
-    Write-Host "=== Step 4: Starting sshd service ===" -ForegroundColor Cyan
-    $svc = Get-Service -Name "sshd" -ErrorAction SilentlyContinue
-    if ($null -eq $svc) {
-        throw "sshd service not found. ssh-host-config may have failed."
-    }
+    Write-Host "=== Step 4: Registering sshd as a scheduled task ===" -ForegroundColor Cyan
 
-    Set-Service -Name "sshd" -StartupType Automatic
-    Start-Service -Name "sshd"
+    Unregister-ScheduledTask -TaskName "CygwinSSHD" -Confirm:$false -ErrorAction SilentlyContinue
 
-    $svc = Get-Service -Name "sshd"
-    if ($svc.Status -eq "Running") {
-        Write-Host "sshd service is RUNNING." -ForegroundColor Green
+    $sshdAction    = New-ScheduledTaskAction -Execute $Bash -Argument '--login -c "/usr/sbin/sshd -D"'
+    $sshdTrigger   = New-ScheduledTaskTrigger -AtStartup
+    $sshdPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+    $sshdSettings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    Register-ScheduledTask -TaskName "CygwinSSHD" -Action $sshdAction -Trigger $sshdTrigger `
+        -Principal $sshdPrincipal -Settings $sshdSettings -Description "Cygwin OpenSSH Server" -Force | Out-Null
+    Write-Host "sshd task registered (starts at boot as SYSTEM)." -ForegroundColor Green
+
+    Start-ScheduledTask -TaskName "CygwinSSHD"
+    Start-Sleep -Seconds 3
+
+    $task = Get-ScheduledTask -TaskName "CygwinSSHD" -ErrorAction SilentlyContinue
+    if ($task.State -eq "Running") {
+        Write-Host "sshd is RUNNING." -ForegroundColor Green
     } else {
-        Write-Host "sshd service failed to start. Status: $($svc.Status)" -ForegroundColor Red
+        Write-Host "sshd task state: $($task.State) — check Task Scheduler for details." -ForegroundColor Yellow
     }
 
 } catch {
