@@ -85,6 +85,54 @@ try {
         Write-Host "Cygwin installed successfully." -ForegroundColor Green
     }
 
+    # ── Diagnostics ────────────────────────────────────────────────────────────
+    Write-Host "`n=== Diagnostics ===" -ForegroundColor Magenta
+
+    Write-Host "  [1] Testing bash..." -ForegroundColor Yellow
+    try {
+        $r = & $Bash --login -c "echo bash_ok" 2>&1
+        Write-Host "      Bash result: $r" -ForegroundColor Gray
+    } catch { Write-Host "      Bash ERROR: $_" -ForegroundColor Red }
+
+    Write-Host "  [2] Testing cygrunsrv directly from PowerShell..." -ForegroundColor Yellow
+    $cygrunsrv = "$CygwinRoot\bin\cygrunsrv.exe"
+    if (Test-Path $cygrunsrv) {
+        $r = & $cygrunsrv --list 2>&1
+        Write-Host "      cygrunsrv --list: $r" -ForegroundColor Gray
+    } else {
+        Write-Host "      cygrunsrv.exe not found at $cygrunsrv" -ForegroundColor Red
+    }
+
+    Write-Host "  [3] Checking AppLocker policy..." -ForegroundColor Yellow
+    try {
+        $alp = Get-AppLockerPolicy -Effective -ErrorAction Stop
+        Write-Host "      AppLocker IS active. Rule collections:" -ForegroundColor Red
+        $alp.RuleCollections | ForEach-Object { Write-Host "        - $($_.RuleCollectionType) ($($_.Count) rules)" -ForegroundColor Yellow }
+    } catch { Write-Host "      AppLocker: not configured" -ForegroundColor Gray }
+
+    Write-Host "  [4] Checking Software Restriction Policy..." -ForegroundColor Yellow
+    $srpKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Safer\CodeIdentifiers"
+    if (Test-Path $srpKey) {
+        $level = (Get-ItemProperty $srpKey -ErrorAction SilentlyContinue).DefaultLevel
+        Write-Host "      SRP DefaultLevel: $level (0=Disallowed, 131072=Normal, 262144=Unrestricted)" -ForegroundColor Yellow
+    } else { Write-Host "      SRP: not configured" -ForegroundColor Gray }
+
+    Write-Host "  [5] Checking WDAC (Windows Defender App Control)..." -ForegroundColor Yellow
+    $wdac = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+    if ($wdac) {
+        Write-Host "      CodeIntegrityPolicyEnforcementStatus: $($wdac.CodeIntegrityPolicyEnforcementStatus)" -ForegroundColor Yellow
+        Write-Host "      UsermodeCodeIntegrityPolicyEnforcementStatus: $($wdac.UsermodeCodeIntegrityPolicyEnforcementStatus)" -ForegroundColor Yellow
+    } else { Write-Host "      WDAC: not detectable or not active" -ForegroundColor Gray }
+
+    Write-Host "  [6] Recent AppLocker/SRP events (last 5 min)..." -ForegroundColor Yellow
+    try {
+        $evts = Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-AppLocker/EXE and DLL'; Level=2,3; StartTime=(Get-Date).AddMinutes(-10)} -MaxEvents 10 -ErrorAction Stop
+        $evts | ForEach-Object { Write-Host "      $($_.TimeCreated): $($_.Message)" -ForegroundColor Red }
+    } catch { Write-Host "      No AppLocker EXE/DLL block events found" -ForegroundColor Gray }
+
+    Write-Host "" -ForegroundColor Gray
+    # ── End Diagnostics ────────────────────────────────────────────────────────
+
     function Invoke-Cygwin($cmd) {
         $result = & $Bash --login -c $cmd 2>&1
         if ($LASTEXITCODE -ne 0) {
