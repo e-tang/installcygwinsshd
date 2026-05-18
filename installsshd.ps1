@@ -206,6 +206,4 @@ try {
 
 } catch {
     Write-Host "`nERROR: $_" -ForegroundColor Red
-} finally {
-    Read-Host "`nPress Enter to exit"
 }
