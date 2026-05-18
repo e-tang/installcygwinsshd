@@ -21,7 +21,10 @@ try {
   </RuleCollection>
 </AppLockerPolicy>
 "@
-    Set-AppLockerPolicy -XmlPolicy $xml -Merge
+    $tmpXml = "$env:TEMP\applocker-cygwin.xml"
+    $xml | Set-Content -Path $tmpXml -Encoding UTF8
+    Set-AppLockerPolicy -XmlPolicy $tmpXml -Merge
+    Remove-Item $tmpXml -ErrorAction SilentlyContinue
     gpupdate /force | Out-Null
     Write-Host "AppLocker rule added. Cygwin executables are now whitelisted." -ForegroundColor Green
 } catch {
