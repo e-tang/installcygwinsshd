@@ -16,6 +16,11 @@ try {
     if (-not (Test-Path $Bash)) {
         Write-Host "=== Cygwin not found. Installing Cygwin... ===" -ForegroundColor Cyan
 
+        if (Test-Path $CygwinRoot) {
+            Write-Host "Removing leftover Cygwin directory..." -ForegroundColor Yellow
+            Remove-Item -Recurse -Force $CygwinRoot
+        }
+
         Write-Host "Downloading Cygwin installer..." -ForegroundColor Yellow
         Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $CygwinSetup -UseBasicParsing
 
