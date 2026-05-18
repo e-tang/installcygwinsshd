@@ -61,7 +61,8 @@ try {
     Write-Host $output
 
     Write-Host "=== Step 2: Setting CYGWIN environment variable ===" -ForegroundColor Cyan
-    [System.Environment]::SetEnvironmentVariable("CYGWIN", "ntsec", "Machine")
+    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" `
+        -Name "CYGWIN" -Value "ntsec" -Type String
 
     Write-Host "=== Step 3: Configuring Windows Firewall ===" -ForegroundColor Cyan
     $ruleName = "Cygwin SSHD"
