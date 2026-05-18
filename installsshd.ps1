@@ -107,7 +107,9 @@ try {
     try {
         $alp = Get-AppLockerPolicy -Effective -ErrorAction Stop
         Write-Host "      AppLocker IS active. Rule collections:" -ForegroundColor Red
-        $alp.RuleCollections | ForEach-Object { Write-Host "        - $($_.RuleCollectionType) ($($_.Count) rules)" -ForegroundColor Yellow }
+        $alp.RuleCollections | ForEach-Object {
+            Write-Host "        - $($_.RuleCollectionType) ($($_.Count) rules, EnforcementMode: $($_.EnforcementMode))" -ForegroundColor Yellow
+        }
     } catch { Write-Host "      AppLocker: not configured" -ForegroundColor Gray }
 
     Write-Host "  [4] Checking Software Restriction Policy..." -ForegroundColor Yellow
@@ -124,11 +126,34 @@ try {
         Write-Host "      UsermodeCodeIntegrityPolicyEnforcementStatus: $($wdac.UsermodeCodeIntegrityPolicyEnforcementStatus)" -ForegroundColor Yellow
     } else { Write-Host "      WDAC: not detectable or not active" -ForegroundColor Gray }
 
-    Write-Host "  [6] Recent AppLocker/SRP events (last 5 min)..." -ForegroundColor Yellow
+    Write-Host "  [6] Recent AppLocker/SRP events (last 10 min)..." -ForegroundColor Yellow
     try {
         $evts = Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-AppLocker/EXE and DLL'; Level=2,3; StartTime=(Get-Date).AddMinutes(-10)} -MaxEvents 10 -ErrorAction Stop
         $evts | ForEach-Object { Write-Host "      $($_.TimeCreated): $($_.Message)" -ForegroundColor Red }
     } catch { Write-Host "      No AppLocker EXE/DLL block events found" -ForegroundColor Gray }
+
+    Write-Host "  [7] Current session identity and privileges..." -ForegroundColor Yellow
+    Write-Host "      User: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)" -ForegroundColor Gray
+    $privs = & whoami /priv 2>&1 | Where-Object { $_ -match "SeServiceLogon|SeCreatePermanent|SeTcb|SeDebug|ENABLED" }
+    $privs | ForEach-Object { Write-Host "      $_" -ForegroundColor Gray }
+
+    Write-Host "  [8] Testing sc.exe service creation with a system binary..." -ForegroundColor Yellow
+    $scTest = & sc.exe create CygwinDiagSvc binPath= "C:\Windows\System32\cmd.exe" start= demand 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "      SUCCESS — service creation with system binary works" -ForegroundColor Green
+        & sc.exe delete CygwinDiagSvc 2>&1 | Out-Null
+    } else {
+        Write-Host "      FAILED — service creation is blocked entirely: $scTest" -ForegroundColor Red
+    }
+
+    Write-Host "  [9] Testing sc.exe service creation with D:\ binary..." -ForegroundColor Yellow
+    $scTest2 = & sc.exe create CygwinDiagSvc2 binPath= "`"$CygwinRoot\bin\cygrunsrv.exe`"" start= demand 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "      SUCCESS — service creation from D:\ works" -ForegroundColor Green
+        & sc.exe delete CygwinDiagSvc2 2>&1 | Out-Null
+    } else {
+        Write-Host "      FAILED — D:\ path is blocked: $scTest2" -ForegroundColor Red
+    }
 
     Write-Host "" -ForegroundColor Gray
     # ── End Diagnostics ────────────────────────────────────────────────────────
