@@ -21,6 +21,22 @@ try {
             Remove-Item -Recurse -Force $CygwinRoot
         }
 
+        Write-Host "Removing Cygwin registry entries..." -ForegroundColor Yellow
+        $regKeys = @(
+            "HKLM:\SOFTWARE\Cygwin",
+            "HKLM:\SOFTWARE\WOW6432Node\Cygwin",
+            "HKCU:\SOFTWARE\Cygwin"
+        )
+        foreach ($key in $regKeys) {
+            if (Test-Path $key) {
+                Remove-Item -Recurse -Force $key
+                Write-Host "  Removed $key" -ForegroundColor Gray
+            }
+        }
+        try {
+            Remove-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -Name "CYGWIN" -ErrorAction SilentlyContinue
+        } catch {}
+
         Write-Host "Downloading Cygwin installer..." -ForegroundColor Yellow
         Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $CygwinSetup -UseBasicParsing
 
