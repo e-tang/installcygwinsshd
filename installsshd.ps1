@@ -61,8 +61,10 @@ try {
     Write-Host $output
 
     Write-Host "=== Step 2: Setting CYGWIN environment variable ===" -ForegroundColor Cyan
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" `
-        -Name "CYGWIN" -Value "ntsec" -Type String
+    $regOut = & reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v CYGWIN /t REG_SZ /d ntsec /f 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Warning: could not set CYGWIN env var (non-fatal, ntsec is the default in modern Cygwin): $regOut" -ForegroundColor Yellow
+    }
 
     Write-Host "=== Step 3: Configuring Windows Firewall ===" -ForegroundColor Cyan
     $ruleName = "Cygwin SSHD"
