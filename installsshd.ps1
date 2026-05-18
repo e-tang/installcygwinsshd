@@ -1,5 +1,10 @@
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
+function Exit-Script($code) {
+    Read-Host "`nPress Enter to exit"
+    exit $code
+}
+
 $CygwinRoot  = "C:\cygwin64"
 $Bash        = "$CygwinRoot\bin\bash.exe"
 $CygwinSetup = "$env:TEMP\cygwin-setup-x86_64.exe"
@@ -25,12 +30,12 @@ if (-not (Test-Path $Bash)) {
     $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
     if ($proc.ExitCode -ne 0) {
         Write-Error "Cygwin installation failed with exit code $($proc.ExitCode)."
-        exit 1
+        Exit-Script 1
     }
 
     if (-not (Test-Path $Bash)) {
         Write-Error "Cygwin installation completed but bash.exe not found at $Bash."
-        exit 1
+        Exit-Script 1
     }
 
     Write-Host "Cygwin installed successfully." -ForegroundColor Green
@@ -62,7 +67,7 @@ Write-Host "=== Step 4: Starting sshd service ===" -ForegroundColor Cyan
 $svc = Get-Service -Name "sshd" -ErrorAction SilentlyContinue
 if ($null -eq $svc) {
     Write-Error "sshd service not found. ssh-host-config may have failed."
-    exit 1
+    Exit-Script 1
 }
 
 Set-Service -Name "sshd" -StartupType Automatic
@@ -74,3 +79,5 @@ if ($svc.Status -eq "Running") {
 } else {
     Write-Host "sshd service failed to start. Status: $($svc.Status)" -ForegroundColor Red
 }
+
+Exit-Script 0
