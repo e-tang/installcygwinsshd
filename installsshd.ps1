@@ -26,7 +26,7 @@ try {
             "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
             "--packages", "openssh,git"
         )
-        $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
+        $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru -WindowStyle Hidden
         if ($proc.ExitCode -ne 0) {
             $CygwinLog = "$CygwinRoot\var\log\setup.log"
             if (Test-Path $CygwinLog) {
