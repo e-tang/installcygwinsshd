@@ -3,7 +3,22 @@ $ErrorActionPreference = "Stop"
 
 $ScriptVersion = "1.0.0"
 $ScriptBuild    = "20260518"
-Write-Host "Install Cygwin SSHD v$ScriptVersion (build $ScriptBuild)" -ForegroundColor Cyan
+
+# Override Write-Host so it works in non-interactive sessions (e.g. over SSH)
+# where the PowerShell console host is unavailable and colour output fails.
+function Write-Host {
+    param(
+        [Parameter(Position=0, ValueFromPipeline=$true)] $Object,
+        [string]$ForegroundColor, [string]$BackgroundColor,
+        [switch]$NoNewline, $Separator
+    )
+    process {
+        $str = if ($null -eq $Object) { '' } else { "$Object" }
+        if ($NoNewline) { [Console]::Out.Write($str) } else { [Console]::Out.WriteLine($str) }
+    }
+}
+
+Write-Host "Install Cygwin SSHD v$ScriptVersion (build $ScriptBuild)"
 
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "ERROR: This script must be run as Administrator." -ForegroundColor Red
