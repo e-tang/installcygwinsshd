@@ -85,87 +85,7 @@ try {
         Write-Host "Cygwin installed successfully." -ForegroundColor Green
     }
 
-    # ── Diagnostics ────────────────────────────────────────────────────────────
-    Write-Host "`n=== Diagnostics ===" -ForegroundColor Magenta
-
-    Write-Host "  [1] Testing bash..." -ForegroundColor Yellow
-    try {
-        $r = & $Bash --login -c "echo bash_ok" 2>&1
-        Write-Host "      Bash result: $r" -ForegroundColor Gray
-    } catch { Write-Host "      Bash ERROR: $_" -ForegroundColor Red }
-
-    Write-Host "  [2] Testing cygrunsrv directly from PowerShell..." -ForegroundColor Yellow
-    $cygrunsrv = "$CygwinRoot\bin\cygrunsrv.exe"
-    if (Test-Path $cygrunsrv) {
-        $r = & $cygrunsrv --list 2>&1
-        Write-Host "      cygrunsrv --list: $r" -ForegroundColor Gray
-    } else {
-        Write-Host "      cygrunsrv.exe not found at $cygrunsrv" -ForegroundColor Red
-    }
-
-    Write-Host "  [3] Checking AppLocker policy..." -ForegroundColor Yellow
-    try {
-        $alp = Get-AppLockerPolicy -Effective -ErrorAction Stop
-        Write-Host "      AppLocker IS active. Rule collections:" -ForegroundColor Red
-        $alp.RuleCollections | ForEach-Object {
-            Write-Host "        - $($_.RuleCollectionType) ($($_.Count) rules, EnforcementMode: $($_.EnforcementMode))" -ForegroundColor Yellow
-        }
-    } catch { Write-Host "      AppLocker: not configured" -ForegroundColor Gray }
-
-    Write-Host "  [4] Checking Software Restriction Policy..." -ForegroundColor Yellow
-    $srpKey = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Safer\CodeIdentifiers"
-    if (Test-Path $srpKey) {
-        $level = (Get-ItemProperty $srpKey -ErrorAction SilentlyContinue).DefaultLevel
-        Write-Host "      SRP DefaultLevel: $level (0=Disallowed, 131072=Normal, 262144=Unrestricted)" -ForegroundColor Yellow
-    } else { Write-Host "      SRP: not configured" -ForegroundColor Gray }
-
-    Write-Host "  [5] Checking WDAC (Windows Defender App Control)..." -ForegroundColor Yellow
-    $wdac = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
-    if ($wdac) {
-        Write-Host "      CodeIntegrityPolicyEnforcementStatus: $($wdac.CodeIntegrityPolicyEnforcementStatus)" -ForegroundColor Yellow
-        Write-Host "      UsermodeCodeIntegrityPolicyEnforcementStatus: $($wdac.UsermodeCodeIntegrityPolicyEnforcementStatus)" -ForegroundColor Yellow
-    } else { Write-Host "      WDAC: not detectable or not active" -ForegroundColor Gray }
-
-    Write-Host "  [6] Recent AppLocker/SRP events (last 10 min)..." -ForegroundColor Yellow
-    try {
-        $evts = Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-AppLocker/EXE and DLL'; Level=2,3; StartTime=(Get-Date).AddMinutes(-10)} -MaxEvents 10 -ErrorAction Stop
-        $evts | ForEach-Object { Write-Host "      $($_.TimeCreated): $($_.Message)" -ForegroundColor Red }
-    } catch { Write-Host "      No AppLocker EXE/DLL block events found" -ForegroundColor Gray }
-
-    Write-Host "  [7] Current session identity and privileges..." -ForegroundColor Yellow
-    Write-Host "      User: $([System.Security.Principal.WindowsIdentity]::GetCurrent().Name)" -ForegroundColor Gray
-    $privs = & whoami /priv 2>&1 | Where-Object { $_ -match "SeServiceLogon|SeCreatePermanent|SeTcb|SeDebug|ENABLED" }
-    $privs | ForEach-Object { Write-Host "      $_" -ForegroundColor Gray }
-
-    Write-Host "  [8] Testing sc.exe service creation with a system binary..." -ForegroundColor Yellow
-    $scTest = & sc.exe create CygwinDiagSvc binPath= "C:\Windows\System32\cmd.exe" start= demand 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "      SUCCESS — service creation with system binary works" -ForegroundColor Green
-        & sc.exe delete CygwinDiagSvc 2>&1 | Out-Null
-    } else {
-        Write-Host "      FAILED — service creation is blocked entirely: $scTest" -ForegroundColor Red
-    }
-
-    Write-Host "  [9] Testing sc.exe service creation with D:\ binary..." -ForegroundColor Yellow
-    $scTest2 = & sc.exe create CygwinDiagSvc2 binPath= "`"$CygwinRoot\bin\cygrunsrv.exe`"" start= demand 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "      SUCCESS — service creation from D:\ works" -ForegroundColor Green
-        & sc.exe delete CygwinDiagSvc2 2>&1 | Out-Null
-    } else {
-        Write-Host "      FAILED — D:\ path is blocked: $scTest2" -ForegroundColor Red
-    }
-
-    Write-Host "" -ForegroundColor Gray
-    # ── End Diagnostics ────────────────────────────────────────────────────────
-
-    function Invoke-Cygwin($cmd) {
-        $result = & $Bash --login -c $cmd 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "Cygwin command failed (exit $LASTEXITCODE): $cmd`nOutput: $result"
-        }
-        return $result
-    }
-
+    # ── Step 1: Generate SSH host keys and config via ssh-host-config ──────────
     Write-Host "=== Step 1: Running ssh-host-config ===" -ForegroundColor Cyan
 
     $existingSvc = Get-Service -Name "sshd" -ErrorAction SilentlyContinue
@@ -173,12 +93,9 @@ try {
         Write-Host "Removing stale sshd service..." -ForegroundColor Yellow
         Stop-Service -Name "sshd" -Force -ErrorAction SilentlyContinue
         & sc.exe delete sshd
-        Write-Host "Waiting for service to be fully removed..." -ForegroundColor Yellow
-        $timeout = 30
-        $elapsed = 0
+        $timeout = 30; $elapsed = 0
         while ((Get-Service -Name "sshd" -ErrorAction SilentlyContinue) -and $elapsed -lt $timeout) {
-            Start-Sleep -Seconds 2
-            $elapsed += 2
+            Start-Sleep -Seconds 2; $elapsed += 2
             Write-Host "  Still waiting... ($elapsed s)" -ForegroundColor Gray
         }
         if (Get-Service -Name "sshd" -ErrorAction SilentlyContinue) {
@@ -187,8 +104,7 @@ try {
         Write-Host "Service removed." -ForegroundColor Green
     }
 
-    # Run ssh-host-config as SYSTEM via a scheduled task — SYSTEM always has
-    # full SCM rights to create services, bypassing UAC token filtering.
+    # Run as SYSTEM via scheduled task to ensure correct file ownership/permissions
     $taskName = "CygwinSSHDSetup"
     $sshdLog  = "$CygwinRoot\tmp\sshd-setup.log"
     New-Item -ItemType Directory -Force -Path "$CygwinRoot\tmp" | Out-Null
@@ -198,8 +114,6 @@ try {
     $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
     $settings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 5)
     Register-ScheduledTask -TaskName $taskName -Action $action -Principal $principal -Settings $settings -Force | Out-Null
-
-    Write-Host "Running ssh-host-config as SYSTEM..." -ForegroundColor Yellow
     Start-ScheduledTask -TaskName $taskName
 
     $timeout = 60; $elapsed = 0
@@ -208,17 +122,18 @@ try {
     }
     Unregister-ScheduledTask -TaskName $taskName -Confirm:$false | Out-Null
 
-    if (Test-Path $sshdLog) {
-        Write-Host (Get-Content $sshdLog -Raw)
-    }
+    if (Test-Path $sshdLog) { Write-Host (Get-Content $sshdLog -Raw) }
+    Write-Host "Note: cygrunsrv service install errors above are handled in Step 4." -ForegroundColor Gray
 
+    # ── Step 2: Set CYGWIN environment variable ────────────────────────────────
     Write-Host "=== Step 2: Setting CYGWIN environment variable ===" -ForegroundColor Cyan
     try {
         & reg add "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v CYGWIN /t REG_SZ /d ntsec /f 2>&1 | Out-Null
     } catch {
-        Write-Host "Warning: could not set CYGWIN env var (non-fatal, ntsec is the default in modern Cygwin)." -ForegroundColor Yellow
+        Write-Host "Warning: could not set CYGWIN env var (non-fatal)." -ForegroundColor Yellow
     }
 
+    # ── Step 3: Firewall ───────────────────────────────────────────────────────
     Write-Host "=== Step 3: Configuring Windows Firewall ===" -ForegroundColor Cyan
     $ruleName = "Cygwin SSHD"
     if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
@@ -228,26 +143,57 @@ try {
         Write-Host "Firewall rule already exists." -ForegroundColor Yellow
     }
 
-    Write-Host "=== Step 4: Registering sshd as a scheduled task ===" -ForegroundColor Cyan
+    # ── Step 4: Install and start sshd ────────────────────────────────────────
+    Write-Host "=== Step 4: Installing and starting sshd ===" -ForegroundColor Cyan
 
-    Unregister-ScheduledTask -TaskName "CygwinSSHD" -Confirm:$false -ErrorAction SilentlyContinue
+    # Try cygrunsrv directly from this PowerShell session first (proven to have SCM rights)
+    $cygrunsrv  = "$CygwinRoot\bin\cygrunsrv.exe"
+    $serviceOk  = $false
 
-    $sshdAction    = New-ScheduledTaskAction -Execute $Bash -Argument '--login -c "/usr/sbin/sshd -D"'
-    $sshdTrigger   = New-ScheduledTaskTrigger -AtStartup
-    $sshdPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
-    $sshdSettings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    Register-ScheduledTask -TaskName "CygwinSSHD" -Action $sshdAction -Trigger $sshdTrigger `
-        -Principal $sshdPrincipal -Settings $sshdSettings -Description "Cygwin OpenSSH Server" -Force | Out-Null
-    Write-Host "sshd task registered (starts at boot as SYSTEM)." -ForegroundColor Green
-
-    Start-ScheduledTask -TaskName "CygwinSSHD"
-    Start-Sleep -Seconds 3
-
-    $task = Get-ScheduledTask -TaskName "CygwinSSHD" -ErrorAction SilentlyContinue
-    if ($task.State -eq "Running") {
-        Write-Host "sshd is RUNNING." -ForegroundColor Green
+    Write-Host "Attempting service install via cygrunsrv..." -ForegroundColor Yellow
+    $cygrOut = & $cygrunsrv --install sshd --path /usr/sbin/sshd --args "-D -e" --disp "CYGWIN sshd" 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "sshd service installed." -ForegroundColor Green
+        Set-Service -Name "sshd" -StartupType Automatic
+        Start-Service -Name "sshd"
+        $svc = Get-Service -Name "sshd"
+        if ($svc.Status -eq "Running") {
+            Write-Host "sshd service is RUNNING." -ForegroundColor Green
+            $serviceOk = $true
+        } else {
+            Write-Host "sshd service failed to start (status: $($svc.Status)) — falling back to scheduled task." -ForegroundColor Yellow
+        }
     } else {
-        Write-Host "sshd task state: $($task.State) — check Task Scheduler for details." -ForegroundColor Yellow
+        Write-Host "cygrunsrv install failed ($cygrOut) — falling back to scheduled task." -ForegroundColor Yellow
+    }
+
+    if (-not $serviceOk) {
+        Unregister-ScheduledTask -TaskName "CygwinSSHD" -Confirm:$false -ErrorAction SilentlyContinue
+        $sshdAction    = New-ScheduledTaskAction -Execute $Bash -Argument '--login -c "/usr/sbin/sshd -D"'
+        $sshdTrigger   = New-ScheduledTaskTrigger -AtStartup
+        $sshdPrincipal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -RunLevel Highest
+        $sshdSettings  = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Hours 0) -MultipleInstances IgnoreNew -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+        Register-ScheduledTask -TaskName "CygwinSSHD" -Action $sshdAction -Trigger $sshdTrigger `
+            -Principal $sshdPrincipal -Settings $sshdSettings -Description "Cygwin OpenSSH Server" -Force | Out-Null
+        Write-Host "sshd registered as scheduled task (starts at boot as SYSTEM)." -ForegroundColor Green
+        Start-ScheduledTask -TaskName "CygwinSSHD"
+        Start-Sleep -Seconds 3
+        $task = Get-ScheduledTask -TaskName "CygwinSSHD" -ErrorAction SilentlyContinue
+        if ($task.State -eq "Running") {
+            Write-Host "sshd is RUNNING (scheduled task)." -ForegroundColor Green
+            $serviceOk = $true
+        } else {
+            Write-Host "sshd task state: $($task.State)" -ForegroundColor Yellow
+        }
+    }
+
+    # ── Final: port check ──────────────────────────────────────────────────────
+    Start-Sleep -Seconds 2
+    $tcp = Test-NetConnection -ComputerName localhost -Port 22 -WarningAction SilentlyContinue -ErrorAction SilentlyContinue
+    if ($tcp.TcpTestSucceeded) {
+        Write-Host "Port 22 is OPEN — SSH is accessible." -ForegroundColor Green
+    } else {
+        Write-Host "Port 22 is not yet open — sshd may still be starting or something failed." -ForegroundColor Yellow
     }
 
 } catch {
