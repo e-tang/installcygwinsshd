@@ -1,9 +1,38 @@
-$CygwinRoot = "C:\cygwin64"
-$Bash       = "$CygwinRoot\bin\bash.exe"
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+$CygwinRoot  = "C:\cygwin64"
+$Bash        = "$CygwinRoot\bin\bash.exe"
+$CygwinSetup = "$env:TEMP\cygwin-setup-x86_64.exe"
 
 if (-not (Test-Path $Bash)) {
-    Write-Error "Cygwin not found at $CygwinRoot. Adjust the path and re-run."
-    exit 1
+    Write-Host "=== Cygwin not found. Installing Cygwin... ===" -ForegroundColor Cyan
+
+    Write-Host "Downloading Cygwin installer..." -ForegroundColor Yellow
+    Invoke-WebRequest -Uri "https://cygwin.com/setup-x86_64.exe" -OutFile $CygwinSetup -UseBasicParsing
+
+    Write-Host "Running Cygwin installer (this may take several minutes)..." -ForegroundColor Yellow
+    $setupArgs = @(
+        "--quiet-mode",
+        "--no-shortcuts",
+        "--no-startmenu",
+        "--no-desktop",
+        "--root", $CygwinRoot,
+        "--local-package-dir", "$env:TEMP\cygwin-packages",
+        "--site", "https://mirrors.kernel.org/sourceware/cygwin/",
+        "--packages", "openssh,git"
+    )
+    $proc = Start-Process -FilePath $CygwinSetup -ArgumentList $setupArgs -Wait -PassThru
+    if ($proc.ExitCode -ne 0) {
+        Write-Error "Cygwin installation failed with exit code $($proc.ExitCode)."
+        exit 1
+    }
+
+    if (-not (Test-Path $Bash)) {
+        Write-Error "Cygwin installation completed but bash.exe not found at $Bash."
+        exit 1
+    }
+
+    Write-Host "Cygwin installed successfully." -ForegroundColor Green
 }
 
 function Invoke-Cygwin($cmd) {
