@@ -1,6 +1,13 @@
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 $ErrorActionPreference = "Stop"
 
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "ERROR: This script must be run as Administrator." -ForegroundColor Red
+    Write-Host "Right-click PowerShell and select 'Run as Administrator', then try again." -ForegroundColor Yellow
+    Read-Host "`nPress Enter to exit"
+    exit 1
+}
+
 try {
     $CygwinRoot  = "C:\cygwin64"
     $Bash        = "$CygwinRoot\bin\bash.exe"
