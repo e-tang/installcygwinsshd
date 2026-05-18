@@ -1,6 +1,10 @@
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 $ErrorActionPreference = "Stop"
 
+$ScriptVersion = "1.0.0"
+$ScriptBuild    = "20260518"
+Write-Host "Install Cygwin SSHD v$ScriptVersion (build $ScriptBuild)" -ForegroundColor Cyan
+
 if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
     Write-Host "ERROR: This script must be run as Administrator." -ForegroundColor Red
     Write-Host "Right-click PowerShell and select 'Run as Administrator', then try again." -ForegroundColor Yellow
